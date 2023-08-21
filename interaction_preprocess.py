@@ -27,7 +27,7 @@ from scipy.signal import savgol_filter
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--video_dir", type=str, help='None'
+        "--dataset_path", type=str, help='NTU RGB+D root path'
     )
     parser.add_argument(
         '--vis', action='store_true'
@@ -35,7 +35,7 @@ def get_args() -> argparse.Namespace:
     return parser.parse_args()
 
 args = get_args()
-with open(os.path.join(args.video_dir, 'merged.pkl'), 'rb') as f:
+with open(os.path.join(args.dataset_path, 'merged.pkl'), 'rb') as f:
     data = pickle.load(f)
     
 
@@ -297,11 +297,10 @@ def detect_fast_move(positions1, positions2, threshold=0.1, hand_move_threshold=
         flag=False
     return flag
 
-def process_file(positions1, positions2, class_name, feet_thre, vis=False):
+def process_file(positions1, positions2, class_name, feet_thre):
     # (seq_len, joints_num, 3)
     #     '''Down Sample'''
     #     positions = positions[::ds_num]
-
     '''Uniform Skeleton'''
     positions1 = uniform_skeleton(positions1, tgt_offsets)
     positions2 = uniform_skeleton(positions2, tgt_offsets)
@@ -666,8 +665,8 @@ if __name__=='__main__':
     joints_num = 22
     # ds_num = 8
     data_dir = './joints/'
-    save_dir1 = './NTURGBD_multi/new_joints/'
-    save_dir2 = './NTURGBD_multi/new_joint_vecs/'
+    save_dir1 = os.path.join(args.dataset_path, 'preprocessed', 'NTURGBD_multi/new_joints/')
+    save_dir2 = os.path.join(args.dataset_path, 'preprocessed', 'NTURGBD_multi/new_joint_vecs/')
     
     #n_raw_offsets = torch.from_numpy(t2m_raw_offsets)
     #kinematic_chain = t2m_kinematic_chain
@@ -717,13 +716,12 @@ if __name__=='__main__':
                 np.save(pjoin(save_dir1, source_file), rec_ric_data)
                 np.save(pjoin(save_dir2, source_file), data)
             except:
-                print(source_file)
                 pass
     else:
         for one_path in glob('positions_*.gif'):
             os.remove(one_path)
 
-        random_target_num = random.randint(0, len(data)-1)
+        random_target_num = 0#random.randint(0, len(data)-1)
         one_data = data[random_target_num]
         #draw_original(one_data, './original.gif')
         source_file = one_data['file_name']+'.npy'
@@ -732,7 +730,7 @@ if __name__=='__main__':
         source_data[...,1]*=-1
         source_data[...,2]*=-1
         data1, _, _, _, data2, _, _, _ = process_file(
-            source_data[0], source_data[1], class_name, 0.002, vis=False)
+            source_data[0], source_data[1], class_name, 0.002)
         rec_ric_data1, rec_ric_data2 = recover_from_ric(
             torch.from_numpy(data1).unsqueeze(0).float(), 
             torch.from_numpy(data2).unsqueeze(0).float(),

@@ -1,8 +1,18 @@
 import numpy as np
+import argparse
 from tqdm import tqdm
 import sys
 import os
 from os.path import join as pjoin
+
+
+def get_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--dataset_path", type=str, help='NTU RGB+D root path'
+    )
+    return parser.parse_args()
+
 
 def mean_variance(data_dir, save_dir, joints_num):
     file_list = os.listdir(data_dir)
@@ -49,6 +59,7 @@ def mean_variance(data_dir, save_dir, joints_num):
     return Mean, Std
 
 if __name__ == '__main__':
-    data_dir = './NTURGBD_multi/new_joint_vecs/'
-    save_dir = './NTURGBD_multi/'
+    args = get_args()
+    data_dir = os.path.join(args.dataset_path, 'preprocessed', 'NTURGBD_multi/new_joint_vecs/')
+    save_dir = os.path.join(args.dataset_path, 'preprocessed', 'NTURGBD_multi/')
     mean, std = mean_variance(data_dir, save_dir, 22)
