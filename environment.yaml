@@ -134,10 +134,10 @@ dependencies:
   - zstd=1.4.9=haebb681_0
   - pip:
     - absl-py==1.0.0
-    - body-visualizer==1.1.0
+    - git+https://github.com/nghorbani/body_visualizer.git
     - cachetools==4.2.4
     - charset-normalizer==2.0.12
-    - configer==1.4.1
+    - git+https://github.com/MPI-IS/configer
     - configparser==5.2.0
     - dotmap==1.3.23
     - freetype-py==2.3.0
@@ -155,7 +155,7 @@ dependencies:
     - opencv-python==4.5.5.64
     - pillow==9.1.1
     - protobuf==3.20.1
-    - psbody-mesh==0.4
+    - git+https://github.com/MPI-IS/mesh.git
     - pyasn1==0.4.8
     - pyasn1-modules==0.2.8
     - pyglet==1.5.26

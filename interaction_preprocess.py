@@ -1,17 +1,17 @@
 import pickle
 from os.path import join as pjoin
 import shutil
-
-from common.skeleton import Skeleton
+import argparse
 import numpy as np
 import os
 from glob import glob
-from common.quaternion import *
-from paramUtil import *
 
 import torch
 from tqdm import tqdm
 import random
+from common.skeleton import Skeleton
+from common.quaternion import *
+from paramUtil import *
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -24,8 +24,18 @@ from matplotlib.animation import ArtistAnimation
 #filter for smoothing
 from scipy.signal import savgol_filter
 
+def get_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--video_dir", type=str, help='None'
+    )
+    parser.add_argument(
+        '--vis', action='store_true'
+    )
+    return parser.parse_args()
 
-with open('merged.pkl', 'rb') as f:
+args = get_args()
+with open(os.path.join(args.video_dir, 'merged.pkl'), 'rb') as f:
     data = pickle.load(f)
     
 
@@ -79,102 +89,9 @@ def draw_original(one_data, save_path, fps=20):
     
     ani = ArtistAnimation(fig, frames)
     ani.save(save_path, fps=fps)
-        
+
 
 def plot_3d_motion(save_path, kinematic_tree, joints1, joints2, title, figsize=(10, 10), fps=120, radius=4):
-#     matplotlib.use('Agg')
-    title_sp = title.split(' ')
-    if len(title_sp) > 10:
-        title = '\n'.join([' '.join(title_sp[:10]), ' '.join(title_sp[10:])])
-    def init():
-        ax.set_xlim3d([-radius / 2, radius / 2])
-        ax.set_ylim3d([0, radius])
-        ax.set_zlim3d([0, radius])
-        # print(title)
-        fig.suptitle(title, fontsize=20)
-        ax.grid(b=False)
-
-    def plot_xzPlane(minx, maxx, miny, minz, maxz):
-        ## Plot a plane XZ
-        verts = [
-            [minx, miny, minz],
-            [minx, miny, maxz],
-            [maxx, miny, maxz],
-            [maxx, miny, minz]
-        ]
-        xz_plane = Poly3DCollection([verts])
-        xz_plane.set_facecolor((0.5, 0.5, 0.5, 0.5))
-        ax.add_collection3d(xz_plane)
-
-    #         return ax
-
-    # (seq_len, joints_num, 3)
-    data1 = joints1.copy().reshape(len(joints1), -1, 3)
-    data2 = joints2.copy().reshape(len(joints2), -1, 3)
-    fig = plt.figure(figsize=figsize)
-    ax = p3.Axes3D(fig)
-    init()
-    MINS = np.vstack([data1.min(axis=0).min(axis=0), data2.min(axis=0).min(axis=0)]).min(axis=0)
-    MAXS = np.vstack([data1.max(axis=0).max(axis=0), data2.max(axis=0).max(axis=0)]).max(axis=0)
-    colors = ['red', 'blue', 'black', 'red', 'blue',  
-              'darkblue', 'darkblue', 'darkblue', 'darkblue', 'darkblue',
-             'darkred', 'darkred','darkred','darkred','darkred']
-    frame_number = data1.shape[0]
-    #     print(data.shape)
-
-    #height_offset = MINS[1]
-    #data1[:, :, 1] -= height_offset
-    #data2[:, :, 1] -= height_offset
-    trajec1 = data1[:, 0, [0, 2]]
-    trajec2 = data2[:, 0, [0, 2]]
-    
-    #data1[..., 0] -= data1[:, 0:1, 0]
-    #data1[..., 2] -= data1[:, 0:1, 2]
-    #data2[..., 0] -= data2[:, 0:1, 0]
-    #data2[..., 2] -= data2[:, 0:1, 2]
-
-    #     print(trajec.shape)
-
-    def update(index):
-        #         print(index)
-        ax.lines = []
-        ax.collections = []
-        ax.view_init(elev=120, azim=-90)
-        ax.dist = 7.5
-        #         ax =
-        plot_xzPlane(MINS[0]-trajec1[index, 0], MAXS[0]-trajec1[index, 0], 0, MINS[2]-trajec1[index, 1], MAXS[2]-trajec1[index, 1])
-        plot_xzPlane(MINS[0]-trajec2[index, 0], MAXS[0]-trajec2[index, 0], 0, MINS[2]-trajec2[index, 1], MAXS[2]-trajec2[index, 1])
-#         ax.scatter(data[index, :22, 0], data[index, :22, 1], data[index, :22, 2], color='black', s=3)
-        
-        if index > 1:
-            ax.plot3D(trajec1[:index, 0]-trajec1[index, 0], np.zeros_like(trajec1[:index, 0]), trajec1[:index, 1]-trajec1[index, 1], linewidth=1.0,
-                      color='blue')
-            ax.plot3D(trajec2[:index, 0]-trajec2[index, 0], np.zeros_like(trajec2[:index, 0]), trajec2[:index, 1]-trajec2[index, 1], linewidth=1.0,
-                      color='blue')
-        #             ax = plot_xzPlane(ax, MINS[0], MAXS[0], 0, MINS[2], MAXS[2])
-        
-        
-        for i, (chain, color) in enumerate(zip(kinematic_tree, colors)):
-#             print(color)
-            if i < 5:
-                linewidth = 4.0
-            else:
-                linewidth = 2.0
-            ax.plot3D(data1[index, chain, 0], data1[index, chain, 1], data1[index, chain, 2], linewidth=linewidth, color=color)
-            ax.plot3D(data2[index, chain, 0], data2[index, chain, 1], data2[index, chain, 2], linewidth=linewidth, color=color)
-        #         print(trajec[:index, 0].shape)
-
-        plt.axis('off')
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
-        ax.set_zticklabels([])
-
-    ani = FuncAnimation(fig, update, frames=frame_number, interval=1000/fps, repeat=False)
-
-    ani.save(save_path, fps=fps)
-    plt.close()
-
-def plot_3d_motion2(save_path, kinematic_tree, joints1, joints2, title, figsize=(10, 10), fps=120, radius=4):
     matplotlib.use('Agg')
     title_sp = title.split(' ')
     if len(title_sp) > 10:
@@ -290,48 +207,6 @@ def smooth_root_move(vecs):
     return np.array(smoothed)
 
 
-def plot_3d_motion3(save_path, kinematic_tree, joints1, joints2, title, figsize=(10, 10), fps=120, radius=4):
-    skel0 = joints1.copy().reshape(len(joints1), -1, 3)
-    skel1 = joints2.copy().reshape(len(joints2), -1, 3)
-
-    fig = plt.figure()
-    ax = Axes3D(fig)
-    ax.view_init(20, 50)
-
-    ax.set_xlim3d([-1, 1])
-    ax.set_ylim3d([-1, 1])
-    ax.set_zlim3d([-0.8, 0.8])
-    ax.set_xlabel('X')
-    ax.set_ylabel('Z')
-    ax.set_zlabel('Y')
-    ax.set_facecolor('none')
-
-    frames = []  
-    for frame_idx in range(len(skel0)):
-        x0 = skel0[frame_idx, :, 0]
-        z0 = skel0[frame_idx, :, 1]
-        y0 = skel0[frame_idx, :, 2]
-        x1 = skel1[frame_idx, :, 0]
-        z1 = skel1[frame_idx, :, 1]
-        y1 = skel1[frame_idx, :, 2]
-        
-        artist = []
-        for part in kinematic_tree:
-            x_plot = x0[part]
-            y_plot = y0[part]
-            z_plot = z0[part]
-            artist += ax.plot(x_plot, y_plot, z_plot, color='b', marker='o', markerfacecolor='r')
-            x_plot = x1[part]
-            y_plot = y1[part]
-            z_plot = z1[part]
-            artist += ax.plot(x_plot, y_plot, z_plot, color='y', marker='o', markerfacecolor='r')
-        
-        frames.append(artist)
-    
-    ani = ArtistAnimation(fig, frames)
-    ani.save(save_path, fps=fps)
-
-
 def uniform_skeleton(positions, target_offset):
     src_skel = Skeleton(n_raw_offsets, kinematic_chain, 'cpu')
     src_offset = src_skel.get_offsets_joints(torch.from_numpy(positions[0]))
@@ -430,17 +305,10 @@ def process_file(positions1, positions2, class_name, feet_thre, vis=False):
     '''Uniform Skeleton'''
     positions1 = uniform_skeleton(positions1, tgt_offsets)
     positions2 = uniform_skeleton(positions2, tgt_offsets)
-    if vis:
-        plot_3d_motion2("./positions_0.gif", kinematic_chain, positions1, positions2, 'title', fps=20)
     #positions1+=trans[0][:,None]
     #positions2+=trans[1][:,None]
-
-    #plot_3d_motion2("./positions_1.gif", kinematic_chain, positions1, positions2, 'title', fps=20)
-    #plot_3d_motion3("./positions_1_.gif", kinematic_chain, positions1, positions2, 'title', fps=20)
     
     #     print(floor_height)
-
-    #     plot_3d_motion("./positions_1.mp4", kinematic_chain, positions, 'title', fps=20)
 
     '''XZ at origin'''
     root_pos_init = (positions1[0]+positions2[0])/2
@@ -499,9 +367,6 @@ def process_file(positions1, positions2, class_name, feet_thre, vis=False):
     positions1[:, :, 1] -= floor_height1
     floor_height2 = positions2.min(axis=0).min(axis=0)[1]
     positions2[:, :, 1] -= floor_height2
-
-    if vis:
-        plot_3d_motion2("./positions_2_1.gif", kinematic_chain, positions1, positions2, 'title', fps=20)
     
     flag = detect_fast_move(positions1, positions2)
     if not flag:
@@ -541,11 +406,6 @@ def process_file(positions1, positions2, class_name, feet_thre, vis=False):
     root_quat_init = qbetween_np(forward_init, target)
     root_quat_init2 = np.ones(positions2.shape[:-1] + (4,)) * root_quat_init
     positions2 = qrot_np(root_quat_init2, positions2)
-    #plot_3d_motion3("./positions_2_2.gif", kinematic_chain, positions1, positions2, 'title', fps=20)
-    #plot_3d_motion2("./positions_2.gif", kinematic_chain, positions1, positions2, 'title', fps=20)
-
-    if vis:
-        plot_3d_motion2("./positions_2_.gif", kinematic_chain, positions1, positions2, 'title', fps=20)
     
     '''New ground truth positions'''
     global_positions1 = positions1.copy()
@@ -555,7 +415,6 @@ def process_file(positions1, positions2, class_name, feet_thre, vis=False):
     """ Get Foot Contacts """
 
     def foot_detect(positions, thres):
-        # 足が動いていたら、地面に足がついていない。
         velfactor, heightfactor = np.array([thres, thres]), np.array([3.0, 2.0])
 
         feet_l_x = (positions[1:, fid_l, 0] - positions[:-1, fid_l, 0]) ** 2
@@ -575,7 +434,6 @@ def process_file(positions1, positions2, class_name, feet_thre, vis=False):
     #
     feet_l1, feet_r1 = foot_detect(positions1, feet_thre)
     feet_l2, feet_r2 = foot_detect(positions2, feet_thre)
-    # feet_l, feet_r = foot_detect(positions, 0.002)
 
     '''Quaternion and Cartesian representation'''
     r_rot1 = None
@@ -652,8 +510,6 @@ def process_file(positions1, positions2, class_name, feet_thre, vis=False):
     '''Root height'''
     root_y1 = positions1[:, 0, 1:2]
     root_y2 = positions2[:, 0, 1:2]
-    
-    #plot_3d_motion("./positions_2.gif", kinematic_chain, positions1, positions2, 'title', fps=20)
     
     '''Root rotation and linear velocity'''
     # (seq_len-1, 1) rotation velocity along y-axis
@@ -831,7 +687,7 @@ if __name__=='__main__':
     # (joints_num, 3)
     tgt_offsets = tgt_skel.get_offsets_joints(example_data[0])
     
-    visualization_mode = False
+    visualization_mode = args.vis
 
     if not visualization_mode:
         if os.path.exists(save_dir1):
@@ -858,7 +714,6 @@ if __name__=='__main__':
                 data = np.concatenate([data1[None,:], data2[None,:]], axis=0)
                 #min_distance = calc_min_distance(rec_ric_data[0], rec_ric_data[1])
                 #if class_name in ['058']:
-                #plot_3d_motion2("./positions_{}.gif".format(one_data['file_name']), kinematic_chain, rec_ric_data[0], rec_ric_data[1], 'title', fps=20)
                 np.save(pjoin(save_dir1, source_file), rec_ric_data)
                 np.save(pjoin(save_dir2, source_file), data)
             except:
@@ -868,10 +723,9 @@ if __name__=='__main__':
         for one_path in glob('positions_*.gif'):
             os.remove(one_path)
 
-        while True:
-            random_target_num = random.randint(0, len(data)-1)
-            one_data = data[random_target_num]
-        draw_original(one_data, './original.gif')
+        random_target_num = random.randint(0, len(data)-1)
+        one_data = data[random_target_num]
+        #draw_original(one_data, './original.gif')
         source_file = one_data['file_name']+'.npy'
         class_name = source_file.split('A')[1][:3]
         source_data = one_data['joints'][:, :, :joints_num]
@@ -886,5 +740,4 @@ if __name__=='__main__':
         rec_ric_data1, rec_ric_data2 = rec_ric_data1.squeeze(0).numpy(), rec_ric_data2.squeeze(0).numpy()
         calc_min_distance(rec_ric_data1, rec_ric_data2)
         
-        plot_3d_motion2("./positions_3.gif", kinematic_chain, rec_ric_data1, rec_ric_data2, 'title', fps=20)
-        plot_3d_motion3("./positions_3_.gif", kinematic_chain, rec_ric_data1, rec_ric_data2, 'title', fps=20)
+        plot_3d_motion("./positions.gif", kinematic_chain, rec_ric_data1, rec_ric_data2, 'title', fps=20)
